@@ -2,7 +2,7 @@
 
 Probabilistic prediction of travel time with lightgbm on a large dataset
 
-### Local development
+### 1. Local development
 
 - Launch jupyter lab
   ```shell
@@ -12,7 +12,7 @@ Probabilistic prediction of travel time with lightgbm on a large dataset
   jupyter lab
   ```
 
-### Setup Dask cluster locally
+### 2. Setup Dask cluster locally
 
 - Add helm chart:
   ```shell
@@ -22,17 +22,21 @@ Probabilistic prediction of travel time with lightgbm on a large dataset
 
 - Install Dask on Kubernetes for a single user with Jupyter and dask-kubernetes:
   ```shell
+  # TODO: add dask-ml==2024.4.4
+  
   kubectl create ns dask
 
-  EXTRA_PIP_PACKAGES="lightgbm[dask]==4.6.0 scikit-learn==1.7.2 scipy==1.15.3 jax==0.6.2 jaxlib==0.6.2 matplotlib==3.10.6"
+  EXTRA_PIP_PACKAGES="lightgbm[dask]==4.6.0 scikit-learn==1.7.2 scipy==1.15.3 jax==0.6.2 jaxlib==0.6.2 matplotlib==3.10.6 gcsfs==2025.9.0 geopandas==1.1.1 google-cloud-storage==3.4.0 google-cloud-bigquery==3.38.0 dask-ml==2024.4.4"
   JUPYTERLAB_ARGS="--config /usr/local/etc/jupyter/jupyter_notebook_config.py"
   
   # Dry run
   helm install -n dask --debug --dry-run my-dask-release dask/dask
 
+  #     --set worker.replicas=2 \
+  
   helm install -n dask my-dask-release dask/dask \
     --version 2024.1.1 \
-    --set worker.replicas=2 \
+    -f values.yaml \
     --set-json 'worker.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
     --set-json 'scheduler.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
     --set-json 'jupyter.env=[
@@ -81,7 +85,45 @@ Probabilistic prediction of travel time with lightgbm on a large dataset
   helm uninstall -n dask my-dask-release
   ```
 
-### Hello world example
+### 3. Setup Dask cluster in GCP
+
+We will use the Google cloud SDK to create the resources of interest. To run the commands below you need to
+have [gsutil](https://cloud.google.com/storage/docs/gsutil_install) (TODO: replace it with gcloud storage),
+[gcloud](https://cloud.google.com/sdk/docs/install) installed.
+
+- Setup environment variables:
+```shell
+# Setup environment variables
+echo """
+  export REGION=us-east1
+  export BUCKET_NAME="artifacts-$(openssl rand -hex 12)"
+    
+  # locations where some credentials will be stored
+  export DASK_SA_CREDENTIALS=.credentials/dask_sa_credentials.json
+  
+#  export MLFLOW_CREDENTIALS=".mlflow_credentials/gcs-csql-access.json"
+#  export GCR_CREDENTIALS=".mlflow_credentials/gcr-access.json"
+""" > .env
+
+source .env
+
+chmod +x kubernetes.sh
+chmod +x create_infra.sh
+```
+
+- Access the cluster:
+```shell
+# To connect to the cluster execute
+gcloud container clusters get-credentials dask-cluster --zone us-central1-a --project imscientist-dask-101
+
+# Check if you are in the right context
+k config get-contexts
+```
+
+
+
+
+### 4. "Hello world" example
 
 - Execute the following snippet in jupyter lab:
   ```python
