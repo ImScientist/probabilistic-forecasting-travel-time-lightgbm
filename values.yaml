@@ -1,0 +1,9 @@
+worker:
+  replicas: 3
+  resources:
+    limits:
+      cpu: 2
+      memory: 8G
+    requests:
+      cpu: 1
+      memory: 8G

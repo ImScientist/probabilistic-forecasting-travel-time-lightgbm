@@ -1,8 +1,80 @@
 import numpy as np
+import pandas as pd
+import lightgbm as lgb
 import scipy.stats as ss
 import jax.scipy.stats as jss
-import lightgbm as lgb
 from jax import grad, vmap
+
+
+def synthetic_data_generation(
+        n: int,
+        n_dummy_feats: int,
+        noise_scale: float,
+        seed: int = 40
+) -> tuple[pd.DataFrame, list[str], str]:
+    """
+    Y ~ Gamma(alpha(X), beta(x))
+    """
+
+    np.random.seed(seed)
+
+    x = np.random.randn(n, 2 + n_dummy_feats + 1)
+    ep = noise_scale * np.random.randn(n, 2)
+
+    a1 = 8. + 3 * np.cos(x[:, 0]) + np.sin(x[:, 1]) + ep[:, 0]
+    a2 = .05 * (np.abs(x[:, 0])) + ep[:, 1]
+
+    a1 = softplus(a1)
+    a2 = softplus(a2)
+
+    alpha = a1 * a2
+    beta = a2
+
+    x[:, -1] = np.random.gamma(shape=alpha, scale=1 / beta, size=n)
+
+    feat_names = [f'col_{i}' for i in range(2 + n_dummy_feats)]
+    target = 'y'
+
+    x = pd.DataFrame(
+        data=x,
+        columns=[f'col_{i}' for i in range(2 + n_dummy_feats)] + [target])
+    x['alpha'] = alpha
+    x['beta'] = beta
+
+    return x, feat_names, target
+
+
+def mle_fit(y):
+    """ MLE of the parameters of a Gamma(alpha, beta) distribution
+
+    mean = alpha / beta
+    std  = sqrt(alpha) / beta
+
+    alpha = (mean/std) ** 2
+    beta  = mean / std**2
+    """
+
+    # naive estimation using (mean, std)
+    y_mean = y.mean()
+    y_std = y.std()
+
+    alpha_naive = (y_mean / y_std) ** 2
+    beta_naive = y_mean / y_std ** 2
+    scale_naive = 1 / beta_naive
+
+    bounds = dict(
+        a=(alpha_naive / 5, alpha_naive * 5),
+        scale=(scale_naive / 5, scale_naive * 5),
+        loc=(0, 0))
+
+    res = ss.fit(dist=ss.gamma, data=y, bounds=bounds)
+
+    assert res.success, "MLE not successful"
+
+    alpha_mle = res.params.a
+    beta_mle = 1 / res.params.scale
+
+    return alpha_mle, beta_mle
 
 
 def softplus(x):
@@ -73,14 +145,9 @@ def custom_loss_lgbm(y, a):
 
 # y_true, y_pred
 def custom_objective_lgbm(y, a):
-    """ ... """
-
-    # y = ds.get_label()
-    # a = a.astype('float32')
+    """ Derive gradient and diagonal of the Hessian matrix """
 
     # (n, 2)
-    # a = a.reshape((y.size, -1), order='F')
-    # a = a.reshape((y.size, -1))
     a = softplus(a)
 
     # (n, 2)
@@ -92,11 +159,5 @@ def custom_objective_lgbm(y, a):
 
     hess_[:, 0] = -d_gamma_d11(y, a[:, 0], a[:, 1])
     hess_[:, 1] = -d_gamma_d22(y, a[:, 0], a[:, 1])
-
-    # grad_ = grad_.reshape(-1, order='F')
-    # hess_ = hess_.reshape(-1, order='F')
-
-    # grad_ = grad_.reshape(-1)
-    # hess_ = hess_.reshape(-1)
 
     return grad_, hess_
