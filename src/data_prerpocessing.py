@@ -1,3 +1,29 @@
+"""
+    Preprocess raw NYC taxi trip data and store it in $DST.
+
+    $DST can be both a local directory or a GCS bucket.
+
+    The following objects are created:
+
+    $DST
+    ├── data
+        ├── raw                            # already present
+        │   ├── data_2016-01.parquet
+        │   ├── data_2016-02.parquet
+        │   ├── ...
+        ├── misc
+        │   └──taxi_zones_summary.parquet  # already present
+        └── preprocessed
+            ├── year=2016/
+            │   ├── month=1/
+            │   ├── month=2/
+            │   ...
+            ├── year=2017/
+                ├── month=1/
+                ├── month=2/
+                ...
+"""
+
 import os
 import logging
 import pandas as pd
@@ -29,10 +55,12 @@ def merge_partition(partition, df_taxi):
 
 
 if __name__ == '__main__':
-    DATA_DIR = 'gs://data-55acf5c126ac2d4fd4c09d61/data'
-    data_raw_dir = os.path.join(DATA_DIR, 'raw')
-    data_dir_preprocessed = os.path.join(DATA_DIR, 'preprocessed')
-    path_taxi_zones_summary = os.path.join(DATA_DIR, 'misc', 'taxi_zones_summary.parquet')
+    BUCKET_NAME = 'artifacts-.....'
+
+    data_dir = f'gs://{BUCKET_NAME}/data'
+    data_raw_dir = os.path.join(data_dir, 'raw')
+    data_dir_preprocessed = os.path.join(data_dir, 'preprocessed')
+    path_taxi_zones_summary = os.path.join(data_dir, 'misc', 'taxi_zones_summary.parquet')
 
     client = Client(address=os.environ['DASK_SCHEDULER_ADDRESS'])
 
@@ -70,6 +98,11 @@ if __name__ == '__main__':
             align_dataframes=False)
     )
 
-    df_new.to_parquet(data_dir_preprocessed, partition_on=['month'])
+    df_new.to_parquet(data_dir_preprocessed, partition_on=['year', 'month'])
+
+    # Check that the raw and preprocessed data have the same number of entries
+    df_preprocessed = dd.read_parquet(data_dir_preprocessed).repartition(npartitions=24 * 6)
+
+    assert len(df) == len(df_preprocessed), 'Datasets have different number of elements'
 
     client.close()
