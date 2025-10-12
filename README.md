@@ -1,4 +1,12 @@
-# Probabilistic-forecasting-travel-time-lightgbm
+# Probabilistic forecasting of trip travel time with Dask-LightGBM
+
+### Table of Contents
+
+1. [Local development](#1-local-development)
+2. [Create GCP infrastructure](#2-create-gcp-infrastructure)
+3. [Setup Dask cluster](#3-setup-dask-cluster)
+4. ["Hello world" example](#4-hello-world-example)
+5. [Probabilistic prediction of travel time (NYC dataset)](#5-probabilistic-prediction-of-traveling-times-nyc-dataset)
 
 Probabilistic prediction of travel time with lightgbm on a large dataset
 
@@ -163,7 +171,7 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   client.restart()
   ```
 
-### 5. Probabilistic prediction of traveling times (NYC dataset)
+### 5. Probabilistic prediction of travel time (NYC dataset)
 
 Execute the steps described in:
 
