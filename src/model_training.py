@@ -299,7 +299,7 @@ if __name__ == '__main__':
             filters=data_filters)
         .dropna()
         .repartition(npartitions=12)
-        .sample(frac=.02)
+        .sample(frac=.9)
         .assign(
             mean_mle=mean_mle,
             beta_mle=beta_mle,
@@ -313,7 +313,7 @@ if __name__ == '__main__':
             filters=data_filters)
         .dropna()
         .repartition(npartitions=12)
-        .sample(frac=.1)
+        .sample(frac=.05)
         .assign(
             mean_mle=mean_mle,
             beta_mle=beta_mle,
