@@ -14,9 +14,14 @@
         ├── misc
         │   └──taxi_zones_summary.parquet  # already present
         └── preprocessed
-            ├── month=1/
-            ├── month=2/
-            ├── ...
+            ├── year=2016/
+            │   ├── month=1/
+            │   ├── month=2/
+            │   ...
+            ├── year=2017/
+                ├── month=1/
+                ├── month=2/
+                ...
 """
 
 import os
@@ -93,10 +98,10 @@ if __name__ == '__main__':
             align_dataframes=False)
     )
 
-    df_new.to_parquet(data_dir_preprocessed, partition_on=['month'])
+    df_new.to_parquet(data_dir_preprocessed, partition_on=['year', 'month'])
 
     # Check that the raw and preprocessed data have the same number of entries
-    df_preprocessed = dd.read_parquet(data_dir_preprocessed).repartition(npartitions=12 * 6)
+    df_preprocessed = dd.read_parquet(data_dir_preprocessed).repartition(npartitions=24 * 6)
 
     assert len(df) == len(df_preprocessed), 'Datasets have different number of elements'
 

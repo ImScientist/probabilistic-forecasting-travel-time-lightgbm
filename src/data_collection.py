@@ -83,4 +83,5 @@ if __name__ == '__main__':
     data_dir_misc = os.path.join(data_dir, 'misc')
 
     collect_data(save_dir=data_raw_dir, year=2016)
+    collect_data(save_dir=data_raw_dir, year=2017)
     store_taxi_zones_summary(save_dir=data_dir_misc)

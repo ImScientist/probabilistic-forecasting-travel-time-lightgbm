@@ -14,7 +14,6 @@ from jax import grad, vmap
 import lightgbm as lgb
 import dask.dataframe as dd
 import matplotlib.pyplot as plt
-from dask_ml.model_selection import train_test_split
 from dask.distributed import Client
 
 logging.basicConfig(level=logging.INFO)
@@ -264,7 +263,9 @@ if __name__ == '__main__':
     feats = num_feats + cat_feats
     target = 'target'
     init_score_feats = ['mean_mle', 'beta_mle']
-    data_filters = [('month', '==', 1), ('target', '>', 0)]
+
+    data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0)]
+    data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0)]
 
     #
     # Determine init score
@@ -273,7 +274,7 @@ if __name__ == '__main__':
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
             columns=[target],
-            filters=data_filters)
+            filters=data_filters_tr)
         .dropna()
         .sample(frac=.015)
         .to_dask_array()
@@ -296,7 +297,7 @@ if __name__ == '__main__':
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
             columns=num_feats + cat_feats + [target],
-            filters=data_filters)
+            filters=data_filters_tr)
         .dropna()
         .repartition(npartitions=12)
         .sample(frac=.9)
@@ -310,7 +311,7 @@ if __name__ == '__main__':
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
             columns=num_feats + cat_feats + [target],
-            filters=data_filters)
+            filters=data_filters_va)
         .dropna()
         .repartition(npartitions=12)
         .sample(frac=.05)
@@ -396,18 +397,5 @@ if __name__ == '__main__':
         observed_fractions_tr=observed_fractions_tr,
         observed_fractions_va=observed_fractions_va)
     plt.show()
-
-    ####################
-    # TODO: use this snippet after fixing dask-ml
-    # df = (
-    #     dd.read_parquet(
-    #         data_dir_preprocessed,
-    #         columns=num_feats + cat_feats + [target],
-    #         filters=[('month', '==', 1), ('target', '>', 0)])
-    #     .dropna()
-    #     .repartition(npartitions=12))
-    #
-    # df_tr, df_va = train_test_split(
-    #     df, test_size=.1, random_state=40, blockwise=True, shuffle=False)
 
     client.close()
