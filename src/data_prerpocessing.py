@@ -55,7 +55,7 @@ def merge_partition(partition, df_taxi):
 
 
 if __name__ == '__main__':
-    BUCKET_NAME = 'artifacts-bbd92fb15ef4637aae71c609'
+    BUCKET_NAME = 'artifacts-.....'
 
     data_dir = f'gs://{BUCKET_NAME}/data'
     data_raw_dir = os.path.join(data_dir, 'raw')

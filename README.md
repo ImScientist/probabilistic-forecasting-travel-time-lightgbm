@@ -162,3 +162,11 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   
   client.restart()
   ```
+
+### 5. Probabilistic prediction of traveling times (NYC dataset)
+
+Execute the steps described in:
+
+- `src/data_collection.py`
+- `src/data_prerpocessing.py`
+- `src/model_training.py`

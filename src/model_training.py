@@ -249,7 +249,7 @@ def plot_true_vs_predicted_dist_means(
 if __name__ == '__main__':
     client = Client(address=os.environ['DASK_SCHEDULER_ADDRESS'])
 
-    BUCKET_NAME = 'artifacts-bbd92fb15ef4637aae71c609'
+    BUCKET_NAME = 'artifacts-.....'
 
     data_dir = f'gs://{BUCKET_NAME}/data'
     data_dir_preprocessed = os.path.join(data_dir, 'preprocessed')
