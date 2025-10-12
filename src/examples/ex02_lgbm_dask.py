@@ -176,7 +176,8 @@ def main_nyc(
         .dropna()
         .sample(frac=.015)
         .to_dask_array()
-        .compute())
+        .compute()
+        .reshape(-1))
 
     y_scaler = 1 / np.median(y)
     y_norm = y_scaler * y

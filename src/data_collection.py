@@ -1,3 +1,20 @@
+"""
+    Collect raw NYC taxi trip data and store it in $DST.
+
+    $DST can be both a local directory or a GCS bucket.
+
+    The following objects are created:
+
+    $DST
+    ├── data
+        ├── raw
+        │   ├── data_2016-01.parquet
+        │   ├── data_2016-02.parquet
+        │   ├── ...
+        └── misc
+            └──taxi_zones_summary.parquet
+"""
+
 import os
 import logging
 import tempfile
@@ -12,7 +29,8 @@ logger = logging.getLogger()
 def collect_data(save_dir: str, year: int):
     """ Get NYC taxi data for a particular year """
 
-    os.makedirs(save_dir, exist_ok=True)
+    if not save_dir.startswith('gs://'):
+        os.makedirs(save_dir, exist_ok=True)
 
     columns = [
         'VendorID',
@@ -39,7 +57,8 @@ def store_taxi_zones_summary(save_dir: str):
     uri = 'https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip'
     dst = os.path.join(save_dir, 'taxi_zones_summary.parquet')
 
-    logger.info(f'Fetch and preprocess data from {uri} and store it in {dst}')
+    logger.info(f'Fetch and preprocess data from {uri} and store it in {dst}\n'
+                f'We will ignore all warnings.\n')
 
     with tempfile.NamedTemporaryFile('w', suffix='.zip') as f:
         urlretrieve(uri, f.name)
@@ -57,7 +76,9 @@ def store_taxi_zones_summary(save_dir: str):
 
 
 if __name__ == '__main__':
-    data_dir = 'gs://data-55acf5c126ac2d4fd4c09d61/data'
+    BUCKET_NAME = 'artifacts-bbd92fb15ef4637aae71c609'
+
+    data_dir = f'gs://{BUCKET_NAME}/data'
     data_raw_dir = os.path.join(data_dir, 'raw')
     data_dir_misc = os.path.join(data_dir, 'misc')
 

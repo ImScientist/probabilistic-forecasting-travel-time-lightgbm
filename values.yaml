@@ -3,7 +3,7 @@ worker:
   resources:
     limits:
       cpu: 2
-      memory: 8G
+      memory: 12G
     requests:
       cpu: 1
-      memory: 8G
+      memory: 12G

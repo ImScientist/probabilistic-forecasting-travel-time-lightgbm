@@ -134,8 +134,6 @@ d_gamma_d22 = vmap(grad(grad(gamma_logpdf, argnums=2), argnums=2))
 def custom_loss_lgbm(y, a):
     """ The custom loss is proportional to the negative log-likelihood """
 
-    # y = ds.get_label()  # (n,)
-    # a = a.astype('float32')
 
     a = a.reshape((y.size, -1), order='F')
     a = softplus(a)
