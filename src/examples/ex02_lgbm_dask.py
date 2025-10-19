@@ -33,9 +33,9 @@ def main_synthetic(save_dir: str):
     mean_mle = alpha_mle / beta_mle
 
     # Add `mean_mle`, `beta_mle` as columns to xy
-    init_score_names = ['mean_mle', 'beta_mle']
-    xy['mean_mle'] = mean_mle
-    xy['beta_mle'] = beta_mle
+    init_score_names = ['a1', 'a2']
+    xy['a1'] = utils.softplus_inv(mean_mle)
+    xy['a2'] = utils.softplus_inv(beta_mle)
 
     xy_tr = dd.from_pandas(xy.iloc[:n_tr], npartitions=4)
     xy_va = dd.from_pandas(xy.iloc[n_tr:], npartitions=4)
@@ -164,7 +164,7 @@ def main_nyc(
         'passenger_count', 'vendor_id', 'weekday', 'month']
     feats = num_feats + cat_feats
     target = 'target'
-    init_score_feats = ['mean_mle', 'beta_mle']
+    init_score_feats = ['a1', 'a2']
 
     data_filters = [('month', '==', 1), ('target', '>', 0)]
 
@@ -200,8 +200,8 @@ def main_nyc(
         .repartition(npartitions=12)
         .sample(frac=.1)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=utils.softplus_inv(mean_mle),
+            a2=utils.softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 
@@ -214,8 +214,8 @@ def main_nyc(
         .repartition(npartitions=12)
         .sample(frac=.1)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=utils.softplus_inv(mean_mle),
+            a2=utils.softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 

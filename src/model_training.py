@@ -59,6 +59,12 @@ def softplus(x):
     return np.log(1 + np.exp(x))
 
 
+def softplus_inv(x):
+    """ Inverse softplus fn """
+
+    return np.log(-1 + np.exp(x))
+
+
 def get_rv(a) -> ss.rv_continuous:
     """ Use the raw predictions of the LightGBM model to generate
     Gamma-distributed random variable """
@@ -262,7 +268,7 @@ if __name__ == '__main__':
         'passenger_count', 'vendor_id', 'weekday', 'month']
     feats = num_feats + cat_feats
     target = 'target'
-    init_score_feats = ['mean_mle', 'beta_mle']
+    init_score_feats = ['a1', 'a2']
 
     data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0)]
     data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0)]
@@ -292,7 +298,6 @@ if __name__ == '__main__':
                 f'beta_mle = {beta_mle}\n'
                 f'mean_mle = {mean_mle}')
 
-    # TODO: remove this snippet after fixing dask-ml
     df_tr = (
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
@@ -302,8 +307,8 @@ if __name__ == '__main__':
         .repartition(npartitions=12)
         .sample(frac=.9)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=softplus_inv(mean_mle),
+            a2=softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 
@@ -316,8 +321,8 @@ if __name__ == '__main__':
         .repartition(npartitions=12)
         .sample(frac=.05)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=softplus_inv(mean_mle),
+            a2=softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 
