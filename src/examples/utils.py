@@ -146,6 +146,15 @@ def custom_loss_lgbm(y, a):
     return 'log-loss', -float(gamma_logpdf(y, a[:, 0], a[:, 1]).mean()), False
 
 
+def mae(y, a):
+    """ Mean absolute error btw predicted distribution mean and observed value """
+
+    a = a.reshape((y.size, -1), order='F')
+    a = softplus(a)
+
+    return 'mae', float(np.abs(a[:, 0] - y).mean()), False
+
+
 # y_true, y_pred
 def custom_objective_lgbm(y, a):
     """ Derive gradient and diagonal of the Hessian matrix """
