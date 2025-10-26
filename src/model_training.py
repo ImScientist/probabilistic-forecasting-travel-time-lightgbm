@@ -142,6 +142,15 @@ def custom_objective_lgbm(y, a):
     return grad_, hess_
 
 
+def mae(y, a):
+    """ Mean absolute error btw predicted distribution mean and observed value """
+
+    a = a.reshape((y.size, -1), order='F')
+    a = softplus(a)
+
+    return 'mae', float(np.abs(a[:, 0] - y).mean()), False
+
+
 def plot_eval_history(eval_history, metric: str = 'log-loss'):
     """ Plot training and validation loss curves """
 
@@ -356,7 +365,7 @@ if __name__ == '__main__':
         eval_init_score=[df_tr[init_score_feats],
                          df_va[init_score_feats]],
 
-        eval_metric=[custom_loss_lgbm],
+        eval_metric=[custom_loss_lgbm, mae],
         feature_name=feats,
         categorical_feature=cat_feats,
     )
@@ -368,6 +377,9 @@ if __name__ == '__main__':
 
     # Plot training/validation loss
     plot_eval_history(model.evals_result_)
+    plt.show()
+
+    plot_eval_history(model.evals_result_, metric='mae')
     plt.show()
 
     # Compare predicted with true distribution mean
