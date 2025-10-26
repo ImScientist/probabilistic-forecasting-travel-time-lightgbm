@@ -110,3 +110,26 @@ def plot_true_vs_predicted_dist_means(
     plt.show()
 
     return fig
+
+
+def plot_rel_stds(
+        y_tr_hat_mean,
+        y_tr_hat_std,
+        y_va_hat_mean,
+        y_va_hat_std
+):
+    """ Plot a distribution of predicted std / predicted mean """
+
+    fig = plt.figure(figsize=(12, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.hist(y_tr_hat_std / y_tr_hat_mean, bins=20, alpha=.3, label='training data')
+    plt.xlabel('std / mean')
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.hist(y_va_hat_std / y_va_hat_mean, bins=20, alpha=.3, label='validation data')
+    plt.xlabel('std / mean')
+    plt.legend()
+
+    return fig

@@ -77,6 +77,9 @@ def main_synthetic(save_dir: str):
     init_score_tr = np.ones(shape=(len(xy_tr), 2)) * np.array([[mean_mle, beta_mle]])
     init_score_va = np.ones(shape=(len(xy_va), 2)) * np.array([[mean_mle, beta_mle]])
 
+    init_score_tr = utils.softplus_inv(init_score_tr)
+    init_score_va = utils.softplus_inv(init_score_va)
+
     ds_tr = lgb.Dataset(
         data=xy_tr[feat_names],
         label=xy_tr[target],
@@ -191,6 +194,9 @@ def main_nyc(save_dir: str):
 
     init_score_tr = np.ones(shape=(len(df_tr), 2)) * np.array([[mean_mle, beta_mle]])
     init_score_va = np.ones(shape=(len(df_va), 2)) * np.array([[mean_mle, beta_mle]])
+
+    init_score_tr = utils.softplus_inv(init_score_tr)
+    init_score_va = utils.softplus_inv(init_score_va)
 
     ds_tr = lgb.Dataset(
         data=df_tr.loc[:, feats],

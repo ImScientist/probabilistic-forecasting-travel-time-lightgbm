@@ -33,9 +33,9 @@ def main_synthetic(save_dir: str):
     mean_mle = alpha_mle / beta_mle
 
     # Add `mean_mle`, `beta_mle` as columns to xy
-    init_score_names = ['mean_mle', 'beta_mle']
-    xy['mean_mle'] = mean_mle
-    xy['beta_mle'] = beta_mle
+    init_score_names = ['a1', 'a2']
+    xy['a1'] = utils.softplus_inv(mean_mle)
+    xy['a2'] = utils.softplus_inv(beta_mle)
 
     xy_tr = dd.from_pandas(xy.iloc[:n_tr], npartitions=4)
     xy_va = dd.from_pandas(xy.iloc[n_tr:], npartitions=4)
@@ -48,8 +48,8 @@ def main_synthetic(save_dir: str):
         boosting_type='gbdt',
         tree_learner='data',
 
-        n_estimators=60,
-        learning_rate=0.05,
+        n_estimators=100,
+        learning_rate=0.02,
         num_leaves=31,
         max_depth=6,
         min_child_samples=100,
@@ -71,41 +71,53 @@ def main_synthetic(save_dir: str):
         eval_init_score=[xy_tr[init_score_names],
                          xy_va[init_score_names]],
 
-        eval_metric=[utils.custom_loss_lgbm],
+        eval_metric=[utils.custom_loss_lgbm, utils.mae],
         feature_name=feat_names,
         categorical_feature=[],
     )
 
     # Save the model
+    path = opj(save_dir, 'model.txt')
     local_model = model.to_local()
     booster = local_model.booster_
-    booster.save_model('model.txt')
+    booster.save_model(path)
 
     # Plot training/validation loss
-    path = opj(save_dir, 'eval_history.png')
+    path = opj(save_dir, 'eval_history_loss.png')
     fig = utils_plot.plot_eval_history(model.evals_result_)
     fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    path = opj(save_dir, 'eval_history_mae.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='mae')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    # TODO: play with num_iteration (pick the value where the val-loss is the lowest)
+    num_iteration = 100
 
     # Compare predicted with true distribution mean
     raw_hat_tr = (
-            model.predict(xy_tr[feat_names]) +
+            model.predict(xy_tr[feat_names], num_iteration=num_iteration) +
             xy_tr[init_score_names].to_dask_array()
     ).compute()
 
     raw_hat_va = (
-            model.predict(xy_va[feat_names]) +
+            model.predict(xy_va[feat_names], num_iteration=num_iteration) +
             xy_va[init_score_names].to_dask_array()
     ).compute()
 
     rv_tr_hat = utils.get_rv(a=raw_hat_tr)
     rv_va_hat = utils.get_rv(a=raw_hat_va)
 
-    utils_plot.plot_true_vs_predicted_dist_means(
-        dist_hat_mean_tr=rv_hat_tr.mean(),  # noqa
+    path = opj(save_dir, 'compare_true_with_predicted_dist.png')
+    fig = utils_plot.plot_true_vs_predicted_dist_means(
+        dist_hat_mean_tr=rv_tr_hat.mean(),  # noqa
         dist_mean_tr=(xy_tr['alpha'] / xy_tr['beta']).compute(),
-        dist_hat_mean_va=rv_hat_va.mean(),  # noqa
+        dist_hat_mean_va=rv_va_hat.mean(),  # noqa
         dist_mean_va=(xy_va['alpha'] / xy_va['beta']).compute())
     plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
 
     qs = np.linspace(.1, .9, 9).reshape(-1, 1)
 
@@ -120,29 +132,42 @@ def main_synthetic(save_dir: str):
     observed_fractions_tr = (y_tr_hat_qs > y_tr).mean(axis=1)
     observed_fractions_va = (y_va_hat_qs > y_va).mean(axis=1)
 
-    _ = utils_plot.plot_quantiles(
+    path = opj(save_dir, 'calibration plot.png')
+    fig = utils_plot.plot_quantiles(
         qs=qs,
         observed_fractions_tr=observed_fractions_tr,
         observed_fractions_va=observed_fractions_va)
     plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
 
     # Compare predicted means with predicted STDs
-    y_tr_hat_mean = np.array(rv_tr_hat.mean())
-    y_va_hat_mean = np.array(rv_va_hat.mean())
+    y_tr_hat_mean = rv_tr_hat.mean()
+    y_va_hat_mean = rv_va_hat.mean()
 
     y_tr_hat_std = rv_tr_hat.std()
     y_va_hat_std = rv_va_hat.std()
 
     rng = np.random.default_rng(12)
-    idx_tr = rng.choice(np.arange(len(y_tr_hat_mean)), size=(1_000,))
-    idx_va = rng.choice(np.arange(len(y_va_hat_mean)), size=(1_000,))
+    idx_tr = rng.choice(np.arange(len(y_tr_hat_mean)), size=(1_000,))  # noqa
+    idx_va = rng.choice(np.arange(len(y_va_hat_mean)), size=(1_000,))  # noqa
 
-    _ = utils_plot.plot_means_vs_std(
+    path = opj(save_dir, 'relative_std.png')
+    utils_plot.plot_rel_stds(
         y_tr_hat_mean=y_tr_hat_mean[idx_tr],
         y_tr_hat_std=y_tr_hat_std[idx_tr],
         y_va_hat_mean=y_va_hat_mean[idx_va],
         y_va_hat_std=y_va_hat_std[idx_va])
     plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
+
+    path = opj(save_dir, 'dist_mean_vs_std.png')
+    fig = utils_plot.plot_means_vs_std(
+        y_tr_hat_mean=y_tr_hat_mean[idx_tr],
+        y_tr_hat_std=y_tr_hat_std[idx_tr],
+        y_va_hat_mean=y_va_hat_mean[idx_va],
+        y_va_hat_std=y_va_hat_std[idx_va])
+    plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
 
     client.close()
 
@@ -152,6 +177,8 @@ def main_nyc(
         save_dir: str
 ):
     """ Use NYC dataset """
+
+    os.makedirs(save_dir, exist_ok=True)
 
     cluster = LocalCluster(n_workers=2, threads_per_worker=2, memory_limit='6GB')
     client = Client(cluster)
@@ -164,7 +191,7 @@ def main_nyc(
         'passenger_count', 'vendor_id', 'weekday', 'month']
     feats = num_feats + cat_feats
     target = 'target'
-    init_score_feats = ['mean_mle', 'beta_mle']
+    init_score_feats = ['a1', 'a2']
 
     data_filters = [('month', '==', 1), ('target', '>', 0)]
 
@@ -200,8 +227,8 @@ def main_nyc(
         .repartition(npartitions=12)
         .sample(frac=.1)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=utils.softplus_inv(mean_mle),
+            a2=utils.softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 
@@ -214,8 +241,8 @@ def main_nyc(
         .repartition(npartitions=12)
         .sample(frac=.1)
         .assign(
-            mean_mle=mean_mle,
-            beta_mle=beta_mle,
+            a1=utils.softplus_inv(mean_mle),
+            a2=utils.softplus_inv(beta_mle),
             target_norm=lambda x: x[target] * y_scaler)
         .persist())
 
@@ -249,29 +276,39 @@ def main_nyc(
         eval_init_score=[df_tr[init_score_feats],
                          df_va[init_score_feats]],
 
-        eval_metric=[utils.custom_loss_lgbm],
+        eval_metric=[utils.custom_loss_lgbm, utils.mae],
         feature_name=feats,
         categorical_feature=cat_feats,
     )
 
     # Save the model
+    path = opj(save_dir, 'model.txt')
     local_model = model.to_local()
     booster = local_model.booster_
-    booster.save_model('model.txt')
+    booster.save_model(path)
 
     # Plot training/validation loss
-    path = opj(save_dir, 'eval_history.png')
+    path = opj(save_dir, 'eval_history_loss.png')
     fig = utils_plot.plot_eval_history(model.evals_result_)
     fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    path = opj(save_dir, 'eval_history_mae.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='mae')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    # TODO: play with num_iteration (pick the value where the val-loss is the lowest)
+    num_iteration = 100
 
     # Compare predicted with true distribution mean
     raw_hat_tr = (
-            model.predict(X=df_tr[feats]) +
+            model.predict(X=df_tr[feats], num_iteration=num_iteration) +
             df_tr[init_score_feats].to_dask_array()
     ).compute()
 
     raw_hat_va = (
-            model.predict(X=df_va[feats]) +
+            model.predict(X=df_va[feats], num_iteration=num_iteration) +
             df_va[init_score_feats].to_dask_array()
     ).compute()
 
@@ -291,11 +328,41 @@ def main_nyc(
     observed_fractions_tr = (y_tr_hat_qs > y_tr).mean(axis=1)
     observed_fractions_va = (y_va_hat_qs > y_va).mean(axis=1)
 
-    #
-    _ = utils_plot.plot_quantiles(
+    path = opj(save_dir, 'calibration plot.png')
+    fig = utils_plot.plot_quantiles(
         qs=qs,
         observed_fractions_tr=observed_fractions_tr,
         observed_fractions_va=observed_fractions_va)
     plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
+
+    # Compare predicted means with predicted STDs
+    y_tr_hat_mean = rv_tr_hat.mean()
+    y_va_hat_mean = rv_va_hat.mean()
+
+    y_tr_hat_std = rv_tr_hat.std()
+    y_va_hat_std = rv_va_hat.std()
+
+    rng = np.random.default_rng(12)
+    idx_tr = rng.choice(np.arange(len(y_tr_hat_mean)), size=(1_000,))  # noqa
+    idx_va = rng.choice(np.arange(len(y_va_hat_mean)), size=(1_000,))  # noqa
+
+    path = opj(save_dir, 'relative_std.png')
+    utils_plot.plot_rel_stds(
+        y_tr_hat_mean=y_tr_hat_mean[idx_tr],
+        y_tr_hat_std=y_tr_hat_std[idx_tr],
+        y_va_hat_mean=y_va_hat_mean[idx_va],
+        y_va_hat_std=y_va_hat_std[idx_va])
+    plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
+
+    path = opj(save_dir, 'dist_mean_vs_std.png')
+    fig = utils_plot.plot_means_vs_std(
+        y_tr_hat_mean=y_tr_hat_mean[idx_tr],
+        y_tr_hat_std=y_tr_hat_std[idx_tr],
+        y_va_hat_mean=y_va_hat_mean[idx_va],
+        y_va_hat_std=y_va_hat_std[idx_va])
+    plt.show()
+    fig.savefig(path, bbox_inches='tight', dpi=200)
 
     client.close()
