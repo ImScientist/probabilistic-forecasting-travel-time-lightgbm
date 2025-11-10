@@ -80,7 +80,7 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   helm repo update
   ```
 
-- Install Dask on Kubernetes for a single user with Jupyter and dask-kubernetes:
+- Setup Dask on Kubernetes for a single user with Jupyter and dask-kubernetes:
   ```shell 
   kubectl create ns dask
   
