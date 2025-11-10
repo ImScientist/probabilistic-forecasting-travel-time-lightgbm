@@ -150,7 +150,7 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   gcloud container clusters delete $CLUSTER_NAME --zone=$ZONE
   ```
 
-### 5. Probabilistic prediction of trip travel time (NYC dataset)
+### 4. Probabilistic prediction of trip travel time (NYC dataset)
 
 We will use the NYC Taxi Trip Dataset: a public dataset containing trip records with pick-up and drop-off times,
 locations, distances, fares, and additional metadata. We will use it to train a model that predicts the trip-travel time
