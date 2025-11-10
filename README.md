@@ -5,8 +5,7 @@
 1. [Local development](#1-local-development)
 2. [Create GCP infrastructure](#2-create-gcp-infrastructure)
 3. [Setup Dask cluster](#3-setup-dask-cluster)
-4. ["Hello world" example](#4-hello-world-example)
-5. [Probabilistic prediction of travel time (NYC dataset)](#5-probabilistic-prediction-of-traveling-times-nyc-dataset)
+4. [Probabilistic prediction of trip travel time (NYC dataset)](#4-probabilistic-prediction-of-trip-travel-time-nyc-dataset)
 
 Probabilistic prediction of travel time with lightgbm on a large dataset
 
@@ -151,29 +150,13 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   gcloud container clusters delete $CLUSTER_NAME --zone=$ZONE
   ```
 
-### 4. "Hello world" example
+### 5. Probabilistic prediction of trip travel time (NYC dataset)
 
-- Execute the following snippet in jupyter lab:
-  ```python
-  import os
-  import dask.array as da
-  from dask.distributed import Client
-  
-
-  address = os.environ['DASK_SCHEDULER_ADDRESS']
-  
-  client = Client(address)
-  
-  x = da.random.random(size=(2_000, 2_000), chunks=(500, 500))
-  y = x + x.T - x.mean(axis=0)
-  y = y.persist()
-  
-  client.restart()
-  ```
-
-### 5. Probabilistic prediction of travel time (NYC dataset)
-
-Execute the steps described in:
+We will use the NYC Taxi Trip Dataset: a public dataset containing trip records with pick-up and drop-off times,
+locations, distances, fares, and additional metadata. We will use it to train a model that predicts the trip-travel time
+probability distribution. We will parametrize the output distribution with a `Gamma(α, β)` pdf: given the input `x` the
+LightGBM model will predict the parameters `α(x)` and `β(x)` of the distribution.
+You should execute the following scripts in the same order:
 
 - `src/data_collection.py`
 - `src/data_prerpocessing.py`
