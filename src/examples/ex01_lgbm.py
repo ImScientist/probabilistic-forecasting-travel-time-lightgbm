@@ -123,8 +123,8 @@ def main_synthetic(save_dir: str):
     raw_hat_tr = gbm.predict(xy_tr[feat_names]) + init_score_tr
     raw_hat_va = gbm.predict(xy_va[feat_names]) + init_score_va
 
-    rv_tr_hat = utils.get_rv(a=raw_hat_tr)
-    rv_va_hat = utils.get_rv(a=raw_hat_va)
+    rv_tr_hat = utils.get_rv(raw_score=raw_hat_tr)
+    rv_va_hat = utils.get_rv(raw_score=raw_hat_va)
 
     fig = utils_plot.plot_true_vs_predicted_dist_means(
         dist_hat_mean_tr=rv_tr_hat.mean(),
@@ -241,8 +241,8 @@ def main_nyc(save_dir: str):
     model_summary = create_model_summary(gbm=gbm)
     model_summary.to_parquet(path)
 
-    rv_tr_hat = utils.get_rv(a=gbm.predict(df_tr[feats]) + init_score_tr)
-    rv_va_hat = utils.get_rv(a=gbm.predict(df_va[feats]) + init_score_va)
+    rv_tr_hat = utils.get_rv(raw_score=gbm.predict(df_tr[feats]) + init_score_tr)
+    rv_va_hat = utils.get_rv(raw_score=gbm.predict(df_va[feats]) + init_score_va)
 
     qs = np.linspace(.1, .9, 9).reshape(-1, 1)
 

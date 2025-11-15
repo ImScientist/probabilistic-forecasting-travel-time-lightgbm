@@ -48,10 +48,10 @@ def main_synthetic(save_dir: str):
         boosting_type='gbdt',
         tree_learner='data',
 
-        n_estimators=100,
+        n_estimators=200,
         learning_rate=0.02,
-        num_leaves=31,
-        max_depth=6,
+        num_leaves=63,
+        max_depth=8,
         min_child_samples=100,
 
         # 'early_stopping_rounds': 10,  # It seems that early stopping is not supported yet
@@ -71,7 +71,10 @@ def main_synthetic(save_dir: str):
         eval_init_score=[xy_tr[init_score_names],
                          xy_va[init_score_names]],
 
-        eval_metric=[utils.custom_loss_lgbm, utils.mae],
+        eval_metric=[utils.custom_loss_lgbm,
+                     utils.mae_lightgbm,
+                     utils.crps_lightgbm,
+                     utils.rel_std_lightgbm],
         feature_name=feat_names,
         categorical_feature=[],
     )
@@ -93,8 +96,18 @@ def main_synthetic(save_dir: str):
     fig.savefig(path, dpi=200, bbox_inches='tight')
     plt.show()
 
+    path = opj(save_dir, 'eval_history_crps.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='crps')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    path = opj(save_dir, 'eval_history_mean_rel_std.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='mean_rel_std')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
     # TODO: play with num_iteration (pick the value where the val-loss is the lowest)
-    num_iteration = 100
+    num_iteration = 0
 
     # Compare predicted with true distribution mean
     raw_hat_tr = (
@@ -107,8 +120,8 @@ def main_synthetic(save_dir: str):
             xy_va[init_score_names].to_dask_array()
     ).compute()
 
-    rv_tr_hat = utils.get_rv(a=raw_hat_tr)
-    rv_va_hat = utils.get_rv(a=raw_hat_va)
+    rv_tr_hat = utils.get_rv(raw_score=raw_hat_tr)
+    rv_va_hat = utils.get_rv(raw_score=raw_hat_va)
 
     path = opj(save_dir, 'compare_true_with_predicted_dist.png')
     fig = utils_plot.plot_true_vs_predicted_dist_means(
@@ -276,7 +289,10 @@ def main_nyc(
         eval_init_score=[df_tr[init_score_feats],
                          df_va[init_score_feats]],
 
-        eval_metric=[utils.custom_loss_lgbm, utils.mae],
+        eval_metric=[utils.custom_loss_lgbm,
+                     utils.mae_lightgbm,
+                     utils.crps_lightgbm,
+                     utils.rel_std_lightgbm],
         feature_name=feats,
         categorical_feature=cat_feats,
     )
@@ -298,6 +314,16 @@ def main_nyc(
     fig.savefig(path, dpi=200, bbox_inches='tight')
     plt.show()
 
+    path = opj(save_dir, 'eval_history_crps.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='crps')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    path = opj(save_dir, 'eval_history_mean_rel_std.png')
+    fig = utils_plot.plot_eval_history(model.evals_result_, metric='mean_rel_std')
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.show()
+
     # TODO: play with num_iteration (pick the value where the val-loss is the lowest)
     num_iteration = 100
 
@@ -315,8 +341,8 @@ def main_nyc(
     y_tr = df_tr['target_norm'].compute().values
     y_va = df_va['target_norm'].compute().values
 
-    rv_tr_hat = utils.get_rv(a=raw_hat_tr)
-    rv_va_hat = utils.get_rv(a=raw_hat_va)
+    rv_tr_hat = utils.get_rv(raw_score=raw_hat_tr)
+    rv_va_hat = utils.get_rv(raw_score=raw_hat_va)
 
     qs = np.linspace(.1, .9, 9).reshape(-1, 1)
 

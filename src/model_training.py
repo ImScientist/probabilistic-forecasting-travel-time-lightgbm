@@ -65,12 +65,12 @@ def softplus_inv(x):
     return np.log(-1 + np.exp(x))
 
 
-def get_rv(a) -> ss.rv_continuous:
+def get_rv(raw_score) -> ss.rv_continuous:
     """ Use the raw predictions of the LightGBM model to generate
     Gamma-distributed random variable """
 
     # (n, 2)
-    z = softplus(a)
+    z = softplus(raw_score)
 
     alpha = z[:, 0] * z[:, 1]
     beta = z[:, 1]
@@ -86,7 +86,7 @@ def predict_quantiles(booster: lgb.Booster, x: np.ndarray, quantiles: list[float
     # -> (len(quantiles), 1)
     q = np.array(quantiles).reshape(-1, 1)
 
-    rv = get_rv(a=booster.predict(x))
+    rv = get_rv(raw_score=booster.predict(x))
 
     # -> (len(quantiles), len(x))
     values = rv.ppf(q=q)
@@ -396,8 +396,8 @@ if __name__ == '__main__':
     y_tr = df_tr['target_norm'].compute().values
     y_va = df_va['target_norm'].compute().values
 
-    rv_tr_hat = get_rv(a=raw_hat_tr)
-    rv_va_hat = get_rv(a=raw_hat_va)
+    rv_tr_hat = get_rv(raw_score=raw_hat_tr)
+    rv_va_hat = get_rv(raw_score=raw_hat_va)
 
     qs = np.linspace(.1, .9, 9).reshape(-1, 1)
 

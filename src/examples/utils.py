@@ -4,6 +4,7 @@ import lightgbm as lgb
 import scipy.stats as ss
 import jax.scipy.stats as jss
 from jax import grad, vmap
+import scipy.special as sspec
 
 
 def synthetic_data_generation(
@@ -18,11 +19,11 @@ def synthetic_data_generation(
 
     np.random.seed(seed)
 
-    x = np.random.randn(n, 2 + n_dummy_feats + 1)
+    x = 5 * np.random.randn(n, 2 + n_dummy_feats + 1)
     ep = noise_scale * np.random.randn(n, 2)
 
     a1 = 8. + 3 * np.cos(x[:, 0]) + np.sin(x[:, 1]) + ep[:, 0]
-    a2 = .05 * (np.abs(x[:, 0])) + ep[:, 1]
+    a2 = .01 * (np.abs(x[:, 0])) + ep[:, 1]
 
     a1 = softplus(a1)
     a2 = softplus(a2)
@@ -89,12 +90,12 @@ def softplus_inv(x):
     return np.log(-1 + np.exp(x))
 
 
-def get_rv(a) -> ss.rv_continuous:
+def get_rv(raw_score) -> ss.rv_continuous:
     """ Use the raw predictions of the LightGBM model to generate
     Gamma-distributed random variable """
 
     # (n, 2)
-    z = softplus(a)
+    z = softplus(raw_score)
 
     alpha = z[:, 0] * z[:, 1]
     beta = z[:, 1]
@@ -110,7 +111,7 @@ def predict_quantiles(booster: lgb.Booster, x: np.ndarray, quantiles: list[float
     # -> (len(quantiles), 1)
     q = np.array(quantiles).reshape(-1, 1)
 
-    rv = get_rv(a=booster.predict(x))
+    rv = get_rv(raw_score=booster.predict(x))
 
     # -> (len(quantiles), len(x))
     values = rv.ppf(q=q)
@@ -146,8 +147,10 @@ def custom_loss_lgbm(y, a):
     return 'log-loss', -float(gamma_logpdf(y, a[:, 0], a[:, 1]).mean()), False
 
 
-def mae(y, a):
-    """ Mean absolute error btw predicted distribution mean and observed value """
+def mae_lightgbm(y, a):
+    """ Mean absolute error btw predicted distribution mean and observed value
+    Inputs adapted to the raw output of the LightGBM model
+    """
 
     a = a.reshape((y.size, -1), order='F')
     a = softplus(a)
@@ -173,3 +176,48 @@ def custom_objective_lgbm(y, a):
     hess_[:, 1] = -d_gamma_d22(y, a[:, 0], a[:, 1])
 
     return grad_, hess_
+
+
+def crps_gamma(y, alpha, beta):
+    """ CRPS for a Gamma(alpha, beta) distribution
+
+    CRPS(y) = y * (2 * CDF_gamma(y| alpha, beta) - 1)
+              + E[X] * (1 - 2 * CDF_gamma(y| alpha+1, beta))
+              - 2 * E[X] * (I_{0.5}(alpha, alpha+1) - .5)
+    """
+
+    mean = alpha / beta
+
+    line_1 = y * (2 * ss.gamma.cdf(x=y, a=alpha, scale=1 / beta) - 1)
+    line_2 = mean * (1 - 2 * ss.gamma.cdf(x=y, a=alpha + 1, scale=1 / beta))
+    line_3 = -2 * mean * (sspec.betainc(alpha, alpha + 1, 0.5) - .5)
+
+    result = line_1 + line_2 + line_3
+
+    return result
+
+
+def crps_lightgbm(y, a):
+    """ Average CRPS
+    Inputs adapted to the raw output of the LightGBM model
+    """
+
+    a = a.reshape((y.size, -1), order='F')
+    a = softplus(a)
+
+    alpha = a[:, 0] * a[:, 1]
+    beta = a[:, 1]
+
+    return 'crps', crps_gamma(y, alpha, beta).mean(), False
+
+
+def rel_std_lightgbm(y, a):
+    """ Average relative STD = STD[X] / E[X]
+    Inputs adapted to the raw output of the LightGBM model
+    """
+
+    raw_score = a.reshape((y.size, -1), order='F')
+
+    rv_tr_hat = get_rv(raw_score=raw_score)
+
+    return 'mean_rel_std', (rv_tr_hat.std() / rv_tr_hat.mean()).mean(), False
