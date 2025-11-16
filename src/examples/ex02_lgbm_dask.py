@@ -359,8 +359,8 @@ def main_nyc(
         qs=qs,
         observed_fractions_tr=observed_fractions_tr,
         observed_fractions_va=observed_fractions_va)
-    plt.show()
     fig.savefig(path, bbox_inches='tight', dpi=200)
+    plt.show()
 
     # Compare predicted means with predicted STDs
     y_tr_hat_mean = rv_tr_hat.mean()
@@ -374,13 +374,13 @@ def main_nyc(
     idx_va = rng.choice(np.arange(len(y_va_hat_mean)), size=(1_000,))  # noqa
 
     path = opj(save_dir, 'relative_std.png')
-    utils_plot.plot_rel_stds(
+    fig = utils_plot.plot_rel_stds(
         y_tr_hat_mean=y_tr_hat_mean[idx_tr],
         y_tr_hat_std=y_tr_hat_std[idx_tr],
         y_va_hat_mean=y_va_hat_mean[idx_va],
         y_va_hat_std=y_va_hat_std[idx_va])
-    plt.show()
     fig.savefig(path, bbox_inches='tight', dpi=200)
+    plt.show()
 
     path = opj(save_dir, 'dist_mean_vs_std.png')
     fig = utils_plot.plot_means_vs_std(
@@ -388,7 +388,7 @@ def main_nyc(
         y_tr_hat_std=y_tr_hat_std[idx_tr],
         y_va_hat_mean=y_va_hat_mean[idx_va],
         y_va_hat_std=y_va_hat_std[idx_va])
-    plt.show()
     fig.savefig(path, bbox_inches='tight', dpi=200)
+    plt.show()
 
     client.close()

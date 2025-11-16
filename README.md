@@ -111,8 +111,8 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
 
   You can check if all components are running with: `kubectl -n dask get all`. Since the readiness and liveness probes
   are not implemented you might see that all deployments and services are ready even though they are not. For example,
-  the extra python packages specified with `EXTRA_PIP_PACKAGES` might be still being installed in each pod. You can
-  check the logs of each pod with `kubectl -n dask logs <pod name>`.
+  the extra python packages specified with `EXTRA_PIP_PACKAGES` might be still being installed in each container. You
+  can check the logs of each pod with `kubectl -n dask logs <pod name>`.
 
 
 - The Jupyter notebook server and Dask scheduler expose external services to which you can connect to manage
