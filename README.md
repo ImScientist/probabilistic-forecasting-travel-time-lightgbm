@@ -5,8 +5,7 @@
 1. [Local development](#1-local-development)
 2. [Create GCP infrastructure](#2-create-gcp-infrastructure)
 3. [Setup Dask cluster](#3-setup-dask-cluster)
-4. ["Hello world" example](#4-hello-world-example)
-5. [Probabilistic prediction of travel time (NYC dataset)](#5-probabilistic-prediction-of-traveling-times-nyc-dataset)
+4. [Probabilistic prediction of trip travel time (NYC dataset)](#4-probabilistic-prediction-of-trip-travel-time-nyc-dataset)
 
 Probabilistic prediction of travel time with lightgbm on a large dataset
 
@@ -80,7 +79,7 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   helm repo update
   ```
 
-- Install Dask on Kubernetes for a single user with Jupyter and dask-kubernetes:
+- Setup Dask on Kubernetes for a single user with Jupyter and dask-kubernetes:
   ```shell 
   kubectl create ns dask
   
@@ -112,8 +111,8 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
 
   You can check if all components are running with: `kubectl -n dask get all`. Since the readiness and liveness probes
   are not implemented you might see that all deployments and services are ready even though they are not. For example,
-  the extra python packages specified with `EXTRA_PIP_PACKAGES` might be still being installed in each pod. You can
-  check the logs of each pod with `kubectl -n dask logs <pod name>`.
+  the extra python packages specified with `EXTRA_PIP_PACKAGES` might be still being installed in each container. You
+  can check the logs of each pod with `kubectl -n dask logs <pod name>`.
 
 
 - The Jupyter notebook server and Dask scheduler expose external services to which you can connect to manage
@@ -151,30 +150,27 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   gcloud container clusters delete $CLUSTER_NAME --zone=$ZONE
   ```
 
-### 4. "Hello world" example
+### 4. Probabilistic prediction of trip travel time (NYC dataset)
 
-- Execute the following snippet in jupyter lab:
-  ```python
-  import os
-  import dask.array as da
-  from dask.distributed import Client
-  
-
-  address = os.environ['DASK_SCHEDULER_ADDRESS']
-  
-  client = Client(address)
-  
-  x = da.random.random(size=(2_000, 2_000), chunks=(500, 500))
-  y = x + x.T - x.mean(axis=0)
-  y = y.persist()
-  
-  client.restart()
-  ```
-
-### 5. Probabilistic prediction of travel time (NYC dataset)
-
-Execute the steps described in:
+We will use the NYC Taxi Trip Dataset: a public dataset containing trip records with pick-up and drop-off times,
+locations, distances, fares, and additional metadata. We will use it to train a model that predicts the trip-travel time
+probability distribution. We will parametrize the output distribution with a `Gamma(α, β)` pdf: given the input `x` the
+LightGBM model will predict the parameters `α(x)` and `β(x)` of the distribution.
+You should execute the following scripts in the same order:
 
 - `src/data_collection.py`
 - `src/data_prerpocessing.py`
 - `src/model_training.py`
+
+Training results:
+- Log-loss and mean(relative std):
+  
+  <img src="figs/evaluation_train_val.png" alt="Evaluation train/val dataset" width="700">
+
+- Calibration plot:
+  
+  <img src="figs/calibration_plot.png" alt="Calibration plot" width="350">
+
+- Distribution mean vs std (the target variable was divided by its median = 628s)
+
+  <img src="figs/dist_mean_vs_std.png" alt="Calibration plot" width="700">

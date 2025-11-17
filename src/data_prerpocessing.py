@@ -91,6 +91,7 @@ if __name__ == '__main__':
             time=lambda x: x['pickup_datetime'].dt.hour * 60 + x['pickup_datetime'].dt.minute,
             weekday=lambda x: x['pickup_datetime'].dt.weekday,
             month=lambda x: x['pickup_datetime'].dt.month,
+            year=lambda x: x['pickup_datetime'].dt.year,
             passenger_count=lambda x: x['passenger_count'].clip(upper=7))
         .map_partitions(
             merge_partition,
