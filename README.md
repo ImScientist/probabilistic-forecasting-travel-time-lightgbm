@@ -161,3 +161,16 @@ You should execute the following scripts in the same order:
 - `src/data_collection.py`
 - `src/data_prerpocessing.py`
 - `src/model_training.py`
+
+Training results:
+- Log-loss and mean(relative std):
+  
+  <img src="figs/evaluation_train_val.png" alt="Evaluation train/val dataset" width="700">
+
+- Calibration plot:
+  
+  <img src="figs/calibration_plot.png" alt="Calibration plot" width="350">
+
+- Distribution mean vs std (the target variable was divided by its median = 628s)
+
+  <img src="figs/dist_mean_vs_std.png" alt="Calibration plot" width="700">

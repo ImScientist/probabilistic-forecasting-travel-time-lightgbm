@@ -7,16 +7,22 @@
 import os
 import time
 import logging
+import tarfile
+import tempfile
+import datetime as dt
+
 import numpy as np
+import lightgbm as lgb
 import scipy.stats as ss
 import scipy.special as sspec
-import jax.scipy.stats as jss
-
-from jax import grad, vmap
-import lightgbm as lgb
-import dask.dataframe as dd
 import matplotlib.pyplot as plt
+
+import jax.scipy.stats as jss
+from jax import grad, vmap
+
+import dask.dataframe as dd
 from dask.distributed import Client
+from google.cloud import storage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -199,6 +205,25 @@ def rel_std_lightgbm(y, a):
     return 'rel_std', (rv_tr_hat.std() / rv_tr_hat.mean()).mean(), False
 
 
+def export_dir_to_gcs(
+        project_id: str,
+        bucket_name: str,
+        blob_name: str,
+        export_dir: str
+):
+    """ Compress folder and export it to gcs-blob """
+
+    blob = (storage.Client(project=project_id)
+            .bucket(bucket_name=bucket_name)
+            .blob(blob_name=blob_name))
+
+    with tempfile.NamedTemporaryFile('w', suffix=".tar.gz") as temp:
+        with tarfile.open(temp.name, "w:gz") as temp_tar:
+            temp_tar.add(export_dir)
+
+        blob.upload_from_filename(temp.name)
+
+
 def plot_eval_history(eval_history, metric: str = 'log-loss'):
     """ Plot training and validation loss curves """
 
@@ -293,7 +318,9 @@ def plot_rel_stds(
 if __name__ == '__main__':
     client = Client(address=os.environ['DASK_SCHEDULER_ADDRESS'])
 
+    PROJECT_ID = ''
     BUCKET_NAME = 'artifacts-.....'
+
     save_dir = 'output'
     os.makedirs(save_dir, exist_ok=True)
 
@@ -345,7 +372,7 @@ if __name__ == '__main__':
             filters=data_filters_tr)
         .dropna()
         .repartition(npartitions=12)
-        .sample(frac=.9)
+        # .sample(frac=.9)
         .assign(
             a1=softplus_inv(mean_mle),
             a2=softplus_inv(beta_mle),
@@ -373,11 +400,12 @@ if __name__ == '__main__':
         boosting_type='gbdt',
         tree_learner='data',
 
-        n_estimators=100,
+        n_estimators=600,
         learning_rate=0.05,
-        num_leaves=127,
-        max_depth=9,
-        min_child_samples=100,
+        max_delta_step=1.,
+        num_leaves=511,
+        max_depth=11,
+        min_child_samples=1_000,
 
         # 'early_stopping_rounds': 10,  # It seems that early stopping is not supported yet
         # 'first_metric_only': True,
@@ -385,6 +413,7 @@ if __name__ == '__main__':
         # reg_lambda=.0001
     )
 
+    ti = time.time()
     model.fit(
         X=df_tr[feats],
         y=df_tr['target_norm'],
@@ -403,6 +432,9 @@ if __name__ == '__main__':
         feature_name=feats,
         categorical_feature=cat_feats,
     )
+    tf = time.time()
+    training_time = tf - ti
+    logger.info(f'training time = {training_time}')
 
     # Save the model
     path = opj(save_dir, 'model.txt')
@@ -504,5 +536,11 @@ if __name__ == '__main__':
         y_va_hat_std=y_va_hat_std[idx_va])
     fig.savefig(path, bbox_inches='tight', dpi=200)
     plt.show()
+
+    export_dir_to_gcs(
+        project_id=PROJECT_ID,
+        bucket_name=BUCKET_NAME,
+        blob_name=f'artifacts_{dt.datetime.now().isoformat()}',
+        export_dir=save_dir)
 
     client.close()
