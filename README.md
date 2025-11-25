@@ -89,7 +89,7 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
                      `"google-cloud-bigquery==3.38.0 dask-ml==2024.4.4"
   
   JUPYTERLAB_ARGS="--config /usr/local/etc/jupyter/jupyter_notebook_config.py"
-    
+
   # Dry run
   helm install -n dask --debug --dry-run my-dask-release dask/dask
 

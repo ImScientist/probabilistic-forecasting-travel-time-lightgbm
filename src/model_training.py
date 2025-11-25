@@ -14,6 +14,7 @@ import datetime as dt
 import numpy as np
 import lightgbm as lgb
 import scipy.stats as ss
+import scipy.optimize as so
 import scipy.special as sspec
 import matplotlib.pyplot as plt
 
@@ -29,7 +30,17 @@ logger = logging.getLogger()
 opj = os.path.join
 
 
-def mle_fit(y):
+def mle_loss(params, y, counts):
+    """ ... """
+
+    alpha, scale = params
+
+    log_pdf = ss.gamma.logpdf(y, a=alpha, scale=scale)
+
+    return - (counts * log_pdf).sum() / counts.sum()
+
+
+def mle_fit_new(y, counts):
     """ MLE of the parameters of a Gamma(alpha, beta) distribution
 
     mean = alpha / beta
@@ -40,24 +51,31 @@ def mle_fit(y):
     """
 
     # naive estimation using (mean, std)
-    y_mean = y.mean()
-    y_std = y.std()
+    y_mean = (y * counts).sum() / counts.sum()
+    y_std = np.sqrt((counts * (y - y_mean) ** 2).sum() / counts.sum())
 
-    alpha_naive = (y_mean / y_std) ** 2
-    beta_naive = y_mean / y_std ** 2
-    scale_naive = 1 / beta_naive
+    alpha_0 = (y_mean / y_std) ** 2
+    beta_0 = y_mean / y_std ** 2
+    scale_0 = 1 / beta_0
 
-    bounds = dict(
-        a=(alpha_naive / 5, alpha_naive * 5),
-        scale=(scale_naive / 5, scale_naive * 5),
-        loc=(0, 0))
+    x0 = np.array([alpha_0, scale_0])
 
-    res = ss.fit(dist=ss.gamma, data=y, bounds=bounds)
+    lb = np.array([1e-3, 1e-3])
+    ub = np.array([np.inf, np.inf])
+    bounds = so.Bounds(lb=lb, ub=ub)
+
+    res = so.minimize(
+        fun=lambda x: mle_loss(x, y, counts),
+        x0=x0,
+        bounds=bounds,
+        method='L-BFGS-B',
+        options={'maxiter': 500},
+        tol=1e-8)
 
     assert res.success, "MLE not successful"
 
-    alpha_mle = res.params.a
-    beta_mle = 1 / res.params.scale
+    alpha_mle, scale_mle = res.x
+    beta_mle = 1 / scale_mle
 
     return alpha_mle, beta_mle
 
@@ -343,21 +361,24 @@ if __name__ == '__main__':
     #
     # Determine init score
     #
-    y = (
+    y_values = (
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
             columns=[target],
             filters=data_filters_tr)
-        .dropna()
-        .sample(frac=.015)
-        .to_dask_array()
-        .compute()
-        .reshape(-1))
+        .dropna())
 
-    y_scaler = 1 / np.median(y)
-    y_norm = y_scaler * y
+    y_median = y_values[target].median_approximate().compute()
+    y_scaler = 1 / y_median
 
-    alpha_mle, beta_mle = mle_fit(y_norm)
+    # target | n | target_norm
+    df_counts = y_values.groupby(target).size().compute().rename('n').reset_index()
+    df_counts['target_norm'] = df_counts[target] * y_scaler
+
+    alpha_mle, beta_mle = mle_fit_new(
+        y=df_counts['target_norm'].values,
+        counts=df_counts['n'].values)
+
     mean_mle = alpha_mle / beta_mle
 
     logger.info(f'y_scaler = {y_scaler}\n'
