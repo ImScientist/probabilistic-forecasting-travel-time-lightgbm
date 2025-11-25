@@ -83,12 +83,11 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   ```shell 
   kubectl create ns dask
   
-  EXTRA_PIP_PACKAGES="lightgbm[dask]==4.6.0 scikit-learn==1.7.2 scipy==1.15.3 "`
-                     `"jax==0.6.2 jaxlib==0.6.2 matplotlib==3.10.6 gcsfs==2025.9.0 "`
-                     `"geopandas==1.1.1 google-cloud-storage==3.4.0 "`
-                     `"google-cloud-bigquery==3.38.0 dask-ml==2024.4.4"
+  EXTRA_PIP_PACKAGES="lightgbm[dask]==4.6.0 scikit-learn==1.7.2 scipy==1.15.3 jax==0.6.2 jaxlib==0.6.2 matplotlib==3.10.6 gcsfs==2025.9.0 geopandas==1.1.1 google-cloud-storage==3.4.0 google-cloud-bigquery==3.38.0 dask-ml==2024.4.4"
   
   JUPYTERLAB_ARGS="--config /usr/local/etc/jupyter/jupyter_notebook_config.py"
+  
+  EXTRA_PIP_PACKAGES="lightgbm[dask]==4.6.0"
   
   # Dry run
   helm install -n dask --debug --dry-run my-dask-release dask/dask
@@ -96,11 +95,11 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
   helm install -n dask my-dask-release dask/dask \
     --version 2024.1.1 \
     -f values.yaml \
-    --set-json 'worker.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
-    --set-json 'scheduler.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
+    --set-json 'worker.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"}]' \
+    --set-json 'scheduler.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"}]' \
     --set-json 'jupyter.env=[
-          {"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"},                   
-          {"name":"JUPYTERLAB_ARGS","value":"'${JUPYTERLAB_ARGS}'"}
+          {"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"},
+          {"name":"JUPYTERLAB_ARGS","value":"'"${JUPYTERLAB_ARGS}"'"}
   ]'
   ```
   It will create the following resources:
