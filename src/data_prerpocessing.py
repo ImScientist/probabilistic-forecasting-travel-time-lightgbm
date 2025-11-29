@@ -58,7 +58,7 @@ if __name__ == '__main__':
     BUCKET_NAME = 'artifacts-.....'
 
     data_dir = f'gs://{BUCKET_NAME}/data'
-    data_raw_dir = os.path.join(data_dir, 'raw')
+    data_dir_raw = os.path.join(data_dir, 'raw')
     data_dir_preprocessed = os.path.join(data_dir, 'preprocessed')
     path_taxi_zones_summary = os.path.join(data_dir, 'misc', 'taxi_zones_summary.parquet')
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             lat=('lat', 'mean'),
             area=('area', 'sum')))
 
-    df = dd.read_parquet(data_raw_dir).repartition(npartitions=12 * 6)
+    df = dd.read_parquet(data_dir_raw).repartition(npartitions=12 * 6)
 
     df_new = (
         df

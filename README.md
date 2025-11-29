@@ -89,18 +89,18 @@ have the [gcloud cli](https://cloud.google.com/sdk/docs/install) installed.
                      `"google-cloud-bigquery==3.38.0 dask-ml==2024.4.4"
   
   JUPYTERLAB_ARGS="--config /usr/local/etc/jupyter/jupyter_notebook_config.py"
-  
+
   # Dry run
   helm install -n dask --debug --dry-run my-dask-release dask/dask
 
   helm install -n dask my-dask-release dask/dask \
     --version 2024.1.1 \
     -f values.yaml \
-    --set-json 'worker.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
-    --set-json 'scheduler.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"}]' \
+    --set-json 'worker.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"}]' \
+    --set-json 'scheduler.env=[{"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"}]' \
     --set-json 'jupyter.env=[
-          {"name":"EXTRA_PIP_PACKAGES","value":"'${EXTRA_PIP_PACKAGES}'"},                   
-          {"name":"JUPYTERLAB_ARGS","value":"'${JUPYTERLAB_ARGS}'"}
+          {"name":"EXTRA_PIP_PACKAGES","value":"'"${EXTRA_PIP_PACKAGES}"'"},
+          {"name":"JUPYTERLAB_ARGS","value":"'"${JUPYTERLAB_ARGS}"'"}
   ]'
   ```
   It will create the following resources:
@@ -163,14 +163,14 @@ You should execute the following scripts in the same order:
 - `src/model_training.py`
 
 Training results:
-- Log-loss and mean(relative std):
+- Log-loss, etc.:
   
-  <img src="figs/evaluation_train_val.png" alt="Evaluation train/val dataset" width="700">
+  <img src="figs/eval_history.png" alt="Evaluation train/val dataset" width="700">
 
-- Calibration plot:
+- Model calibration:
   
-  <img src="figs/calibration_plot.png" alt="Calibration plot" width="350">
+  <img src="figs/calibration_plot.png" alt="Calibration plot" width="700">
 
-- Distribution mean vs std (the target variable was divided by its median = 628s)
+- Distribution mean vs std (the target variable was divided by its median = 816s)
 
   <img src="figs/dist_mean_vs_std.png" alt="Calibration plot" width="700">
