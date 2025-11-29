@@ -31,7 +31,7 @@ opj = os.path.join
 
 
 def mle_loss(params, y, counts):
-    """ ... """
+    """ Loss used for the MLE of the parameters of a Gamma(alpha, beta) distribution """
 
     alpha, scale = params
 
@@ -40,7 +40,7 @@ def mle_loss(params, y, counts):
     return - (counts * log_pdf).sum() / counts.sum()
 
 
-def mle_fit_new(y, counts):
+def mle(y, counts) -> tuple[float, float]:
     """ MLE of the parameters of a Gamma(alpha, beta) distribution
 
     mean = alpha / beta
@@ -48,6 +48,11 @@ def mle_fit_new(y, counts):
 
     alpha = (mean/std) ** 2
     beta  = mean / std**2
+
+    Parameters
+    ----------
+    y: observed values
+    counts: how many times a value has been observed
     """
 
     # naive estimation using (mean, std)
@@ -242,44 +247,49 @@ def export_dir_to_gcs(
         blob.upload_from_filename(temp.name)
 
 
-def plot_eval_history(eval_history, metric: str = 'log-loss'):
+def plot_eval_history(ax, eval_history, metric: str = 'log-loss'):
     """ Plot training and validation loss curves """
 
     n = len(eval_history['train'][metric])
 
-    fig = plt.figure(figsize=(6, 4))
-    plt.plot(np.arange(n),
-             np.array(eval_history['train'][metric]),
-             label=f'{metric} train')
-    plt.plot(np.arange(n),
-             np.array(eval_history['val'][metric]),
-             label=f'{metric} val')
-    plt.legend()
+    ax.plot(np.arange(n),
+            np.array(eval_history['train'][metric]),
+            label=f'{metric} train')
 
-    return fig
+    ax.plot(np.arange(n),
+            np.array(eval_history['val'][metric]),
+            label=f'{metric} val')
+
+    ax.legend()
+    ax.set_xlabel('epoch')
+
+    return ax
 
 
-def plot_quantiles(
+def plot_calibration(
         qs,
         observed_fractions_tr,
-        observed_fractions_va
+        observed_fractions_va,
+        cdfs_tr,
+        cdfs_va
 ):
-    """ Compare predicted with observed fractions """
+    """ Calibration plot and PIT histogram """
 
     fig = plt.figure(figsize=(12, 4))
 
     plt.subplot(1, 2, 1)
-    plt.scatter(qs, observed_fractions_tr, s=20, marker='x')
-    plt.plot([0, 1], [0, 1], color='grey', alpha=.4, label='training data')
+    plt.scatter(qs.squeeze(), observed_fractions_tr, s=40, marker='x', label='Training data')
+    plt.scatter(qs.squeeze(), observed_fractions_va, s=60, marker='+', label='Validation data')
+    plt.plot([0, 1], [0, 1], color='grey', alpha=.4)
+    plt.legend()
     plt.xlabel('predicted quantiles')
     plt.ylabel('observed fractions')
-    plt.legend()
 
     plt.subplot(1, 2, 2)
-    plt.scatter(qs, observed_fractions_va, s=20, marker='x')
-    plt.plot([0, 1], [0, 1], color='grey', alpha=.4, label='validation data')
-    plt.xlabel('predicted quantiles')
-    plt.ylabel('observed fractions')
+    kwargs = dict(bins=20, alpha=.5, histtype='step', density=True)
+    plt.hist(cdfs_tr, label='Training data', **kwargs)
+    plt.hist(cdfs_va, label='Validation data', **kwargs)
+    plt.xlabel('observed cumulative probability')
     plt.legend()
 
     return fig
@@ -343,7 +353,7 @@ if __name__ == '__main__':
     os.makedirs(save_dir, exist_ok=True)
 
     data_dir = f'gs://{BUCKET_NAME}/data'
-    data_dir_preprocessed = os.path.join(data_dir, 'preprocessed')
+    data_dir_preprocessed = opj(data_dir, 'preprocessed')
 
     num_feats = [
         'trip_distance', 'time',
@@ -355,12 +365,12 @@ if __name__ == '__main__':
     target = 'target'
     init_score_feats = ['a1', 'a2']
 
-    data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0)]
-    data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0)]
+    data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000)]
+    data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000)]
 
-    #
-    # Determine init score
-    #
+    ################################
+    #     Determine init score     #
+    ################################
     y_values = (
         dd.read_parquet(
             path=f'{data_dir_preprocessed}',
@@ -368,14 +378,15 @@ if __name__ == '__main__':
             filters=data_filters_tr)
         .dropna())
 
+    # Scale the target variable by the approximate median
     y_median = y_values[target].median_approximate().compute()
     y_scaler = 1 / y_median
 
-    # target | n | target_norm
+    # Table with columns: target | n | target_norm
     df_counts = y_values.groupby(target).size().compute().rename('n').reset_index()
     df_counts['target_norm'] = df_counts[target] * y_scaler
 
-    alpha_mle, beta_mle = mle_fit_new(
+    alpha_mle, beta_mle = mle(
         y=df_counts['target_norm'].values,
         counts=df_counts['n'].values)
 
@@ -385,6 +396,10 @@ if __name__ == '__main__':
                 f'alpha_mle = {alpha_mle}\n'
                 f'beta_mle = {beta_mle}\n'
                 f'mean_mle = {mean_mle}')
+
+    ################################
+    # END Determine init score END #
+    ################################
 
     df_tr = (
         dd.read_parquet(
@@ -463,35 +478,25 @@ if __name__ == '__main__':
     booster = local_model.booster_
     booster.save_model(path)
 
-    # Plot training/validation loss
-    path = opj(save_dir, 'eval_history_log-loss.png')
-    fig = plot_eval_history(model.evals_result_, metric='log-loss')
+    # Plot training/validation metrics
+    path = opj(save_dir, 'eval_history.png')
+    fig, ((ax_00, ax_01), (ax_10, ax_11)) = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    plot_eval_history(ax_00, eval_history=model.evals_result_, metric='log-loss')
+    plot_eval_history(ax_01, eval_history=model.evals_result_, metric='mae')
+    plot_eval_history(ax_10, eval_history=model.evals_result_, metric='crps')
+    plot_eval_history(ax_11, eval_history=model.evals_result_, metric='rel_std')
     fig.savefig(path, dpi=200, bbox_inches='tight')
     plt.show()
 
-    path = opj(save_dir, 'eval_history_mae.png')
-    fig = plot_eval_history(model.evals_result_, metric='mae')
-    fig.savefig(path, dpi=200, bbox_inches='tight')
-    plt.show()
+    # Generate model predictions
 
-    path = opj(save_dir, 'eval_history_crps.png')
-    fig = plot_eval_history(model.evals_result_, metric='crps')
-    fig.savefig(path, dpi=200, bbox_inches='tight')
-    plt.show()
-
-    path = opj(save_dir, 'eval_history_mean_rel_std.png')
-    fig = plot_eval_history(model.evals_result_, metric='rel_std')
-    fig.savefig(path, dpi=200, bbox_inches='tight')
-    plt.show()
-
-    # TODO: update num_iteration (pick the value where the val-loss is the lowest)
-    # 0 <-> get all trees
+    # Pick the value where the val-loss is the lowest: 0 <-> get all trees
     num_iteration = 0
 
-    # Compare predicted with true distribution mean
     df_tr_sample = df_tr.sample(frac=.05).persist()
     df_va_sample = df_va.sample(frac=.90).persist()
 
+    # Predicted raw scores
     raw_hat_tr = (
             model.predict(X=df_tr_sample[feats], num_iteration=num_iteration) +
             df_tr_sample[init_score_feats].to_dask_array()
@@ -502,33 +507,49 @@ if __name__ == '__main__':
             df_va_sample[init_score_feats].to_dask_array()
     ).compute()
 
-    y_tr = df_tr_sample['target_norm'].compute().values
-    y_va = df_va_sample['target_norm'].compute().values
-
+    # Map predicted raw scores to Gamma(alpha, beta) distributions
     rv_tr_hat = get_rv(raw_score=raw_hat_tr)
     rv_va_hat = get_rv(raw_score=raw_hat_va)
 
+    ############################
+    #     Calibration plot     #
+    ############################
+
     qs = np.linspace(.1, .9, 9).reshape(-1, 1)
 
-    # -> (n_qs, n)
+    # -> (n_quantiles, n)
     y_tr_hat_qs = rv_tr_hat.ppf(q=qs)
     y_va_hat_qs = rv_va_hat.ppf(q=qs)
 
-    # (n_qs, n) -> (n_qs,)
+    # -> (n,)
+    y_tr = df_tr_sample['target_norm'].compute().values
+    y_va = df_va_sample['target_norm'].compute().values
+
+    # (n_quantiles, n) -> (n_quantiles,)
     observed_fractions_tr = (y_tr_hat_qs > y_tr).mean(axis=1)
     observed_fractions_va = (y_va_hat_qs > y_va).mean(axis=1)
 
+    # -> (n,)
+    cdfs_tr = rv_tr_hat.cdf(y_tr)
+    cdfs_va = rv_va_hat.cdf(y_va)
+
     path = opj(save_dir, 'calibration plot.png')
-    fig = plot_quantiles(
+    fig = plot_calibration(
         qs=qs,
         observed_fractions_tr=observed_fractions_tr,
-        observed_fractions_va=observed_fractions_va)
+        observed_fractions_va=observed_fractions_va,
+        cdfs_tr=cdfs_tr,
+        cdfs_va=cdfs_va)
     fig.savefig(path, bbox_inches='tight', dpi=200)
     plt.show()
 
-    #
-    # Compare predicted means with predicted STDs
-    #
+    ############################
+    # END Calibration plot END #
+    ############################
+
+    #################################
+    #     Model sharpness plots     #
+    #################################
 
     y_tr_hat_mean = rv_tr_hat.mean()
     y_va_hat_mean = rv_va_hat.mean()
@@ -558,10 +579,14 @@ if __name__ == '__main__':
     fig.savefig(path, bbox_inches='tight', dpi=200)
     plt.show()
 
+    #################################
+    # END Model sharpness plots END #
+    #################################
+
     export_dir_to_gcs(
         project_id=PROJECT_ID,
         bucket_name=BUCKET_NAME,
-        blob_name=f'artifacts_{dt.datetime.now().isoformat()}',
+        blob_name=f'artifacts/{dt.datetime.now().isoformat()}.tar.gz',
         export_dir=save_dir)
 
     client.close()

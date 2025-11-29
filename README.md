@@ -163,14 +163,14 @@ You should execute the following scripts in the same order:
 - `src/model_training.py`
 
 Training results:
-- Log-loss and mean(relative std):
+- Log-loss, etc.:
   
-  <img src="figs/evaluation_train_val.png" alt="Evaluation train/val dataset" width="700">
+  <img src="figs/eval_history.png" alt="Evaluation train/val dataset" width="700">
 
-- Calibration plot:
+- Model calibration:
   
-  <img src="figs/calibration_plot.png" alt="Calibration plot" width="350">
+  <img src="figs/calibration_plot.png" alt="Calibration plot" width="700">
 
-- Distribution mean vs std (the target variable was divided by its median = 628s)
+- Distribution mean vs std (the target variable was divided by its median = 816s)
 
   <img src="figs/dist_mean_vs_std.png" alt="Calibration plot" width="700">
