@@ -365,8 +365,10 @@ if __name__ == '__main__':
     target = 'target'
     init_score_feats = ['a1', 'a2']
 
-    data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000)]
-    data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000)]
+    data_filters_tr = [('year', '==', 2016), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000),
+                       ('weekday', '==', 1)]
+    data_filters_va = [('year', '==', 2017), ('month', '==', 1), ('target', '>', 0), ('target', '<', 6_000),
+                       ('weekday', '==', 1)]
 
     ################################
     #     Determine init score     #
