@@ -136,7 +136,6 @@ def custom_loss_lgbm(y, a):
     """ The custom loss is proportional to the negative log-likelihood """
 
     a = a.reshape((y.size, -1), order='F')
-    # a = softplus(a)
 
     return 'log-loss', -float(gamma_logpdf(y, a[:, 0], a[:, 1]).mean()), False
 
@@ -144,9 +143,6 @@ def custom_loss_lgbm(y, a):
 # y_true, y_pred
 def custom_objective_lgbm(y, a):
     """ Derive gradient and diagonal of the Hessian matrix """
-
-    # (n, 2)
-    # a = softplus(a)
 
     # (n, 2)
     grad_ = np.zeros_like(a)
